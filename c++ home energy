@@ -1,0 +1,142 @@
+#include <LiquidCrystal.h>
+
+//LCD SCREEN----------------------------------------
+// initialize the library by associating any needed LCD interface pin
+// with the arduino pin number it is connected to
+
+const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2; //PINS USED 12,11,5,4,3,2
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+
+// CURRENT SENSOR-----------------------------------------------------
+
+const int analogInC = 0; //Connect current sensor with A0 of Arduino
+int mVperAmp = 185; // use 100 for 20A Module and 66 for 30A Module
+int RawValue= 0;
+int ACSoffset = 2500; 
+double Voltage = 0; //voltage measuring
+double Amps = 0;// Current measuring
+
+//voltage sensor --------------------------------------------------------------
+
+const int analogInV = 1; //Connect VOLTAGE sensor with A1 of Arduino
+// Floats for ADC voltage & Input voltage
+float adc_voltage = 0.0;
+float in_voltage = 0.0;
+ 
+// Floats for resistor values in divider (in ohms)
+float R1 = 30000.0;
+float R2 = 7500.0; 
+ 
+// Float for Reference Voltage
+float ref_voltage = 5.0;
+ 
+// Integer for ADC value
+int adc_value = 0;
+
+// I initialize our two relays as below----------------------------------------
+int RELAY1=10;// i.e relay1 will be fed from pin no 10
+int RELAY2=9;
+int LEDF8=8;// LOW POWER WARNING LED INITIALIZED 
+
+
+void setup(){
+  Serial.begin(9600);// allow serial monitor # on pc 
+  //I.E baud rate at which arduino communicates with Laptop(RATE OF SENDING MSG)
+
+  pinMode(RELAY1, OUTPUT);
+  pinMode(RELAY2, OUTPUT);
+  pinMode(LEDF8, OUTPUT);
+
+ // set up the LCD's number of columns and rows:
+  lcd.begin(16, 2);
+
+  // Print a WELCOME message to the LCD.
+  lcd.print("HOME ENERGY MGT!");
+  delay(500);
+   lcd.clear ();// CLEAR THE SCREEN
+  lcd.print("SYSTEM!");
+  delay(1000);
+  
+
+}
+
+void loop() {
+  
+   //digitalWrite(LED1, HIGH);  // turn the LED on (HIGH is the voltage level)
+  delay(1000);                      // wait for a second
+  //digitalWrite(LED1, LOW);   // turn the LED off by making the voltage LOW
+  delay(1000);                      // wait for a second
+
+// CURRENT SENSOR---------------------------------------------------------------------------------
+RawValue = analogRead(analogInC);//reading the value from the analog pin
+ Voltage = (RawValue / 1024.0) * 5000; // Gets you mV
+ Amps = ((Voltage - ACSoffset) / mVperAmp);
+
+ Serial.println(Amps,3);// the '3' after voltage allows you to display 3 digits after decimal point
+ lcd.setCursor(0,1);// SET CURSOR TO COLUMN ZERO ,ROW 1 I.E SECOND LINE
+ lcd.print("Current = ");
+ lcd.setCursor(11,2);
+ lcd.print(Amps,3);
+ lcd.setCursor(16,2);
+ lcd.print("A"); //unit for the current to be measured
+ delay(2000); //delay of 2.5 
+ 
+ // voltage sensor-------------------------------------------------------------
+ // Read the Analog Input
+   adc_value = analogRead(analogInV);
+   
+   // Determine voltage at ADC input
+   adc_voltage  = (adc_value * ref_voltage) / 1024.0; 
+   
+   // Calculate voltage at divider input
+   in_voltage = adc_voltage / (R2/(R1+R2)) ; 
+   
+   // Print results to Serial Monitor to 2 decimal places
+  Serial.print("Input Voltage = ");
+  Serial.println(in_voltage, 2);
+
+  lcd.setCursor(0,1);// SET CURSOR TO COLUMN ZERO ,ROW 1 I.E SECOND LINE
+ lcd.print("voltage = ");
+ lcd.setCursor(11,2);
+ lcd.print(in_voltage,3);
+ lcd.setCursor(16,2);
+ lcd.print("V"); //unit for the current to be measured
+ 
+  // Short delay
+  delay(500);
+// relay operational conditions------triggering n.b we will use digitalwrite inorder to get 5v otherwise analog write has low duty cycle
+//the duty cycle of analogwrite is not enough to trigger the 5v relay coil into closing the mains
+
+  if(in_voltage>=12)
+  {
+    digitalWrite(RELAY1, HIGH);// close relay1
+    digitalWrite(RELAY2, HIGH);// close relay2
+    digitalWrite(LEDF8, LOW);//TURN OFF WARNING LED
+ }
+ else if(in_voltage>=11.6)
+ {
+   lcd.print("R00M2 OFF!");
+   digitalWrite(RELAY1, HIGH);// close relay1
+    digitalWrite(RELAY2, LOW);// OPEN relay2
+    digitalWrite(LEDF8, HIGH);//TURN ON WARNING LED
+    delay(500);
+    digitalWrite(LEDF8, LOW);//TURN OFF WARNING LED
+    delay(500);
+    ///SECOND TIME LED WARNING
+    digitalWrite(LEDF8, HIGH);//TURN ON WARNING LED
+    delay(500);
+    digitalWrite(LEDF8, LOW);//TURN OFF WARNING LED
+    delay(500);
+ }
+else
+{
+  lcd.print("V.LOW ENERGY !");
+  digitalWrite(RELAY1, LOW);// OPEN relay1
+    digitalWrite(RELAY2, LOW);// OPEN relay2
+    digitalWrite(LEDF8, HIGH);//TURN ON WARNING LED
+    delay(1000);
+    digitalWrite(LEDF8, LOW);//TURN OFF WARNING LED
+    
+}
+  delay(1000);                      // wait for a second THEN REPEAT THE LOOP
+}
